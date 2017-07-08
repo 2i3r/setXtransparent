@@ -1,0 +1,43 @@
+#/usr/bin/env bash
+
+usage() {
+cat << EOF
+Usage:	setXtransparent [n]
+
+	n: transparency percent 0-100
+
+With no "n", read from ~/.transparency
+EOF
+exit 1;
+}
+	
+[[ $1 == "-h" || $1 == "--help" ]] && usage;
+
+TRNSP_SETTS="${HOME}/.transparency";
+OPACITY_100="0xffffffff";
+OPACITY_0="0x0";
+
+: ${XPROP:=$(type -P xprop)}
+[ -z ${XPROP} ] && { echo "You need to install xprop"; exit 1; }
+
+TRNSP_PERCENT=$1
+if [ -z "${TRNSP_PERCENT}" ]; then
+	[ -f "${TRNSP_SETTS}" ] && TRNSP_PERCENT=$(<$TRNSP_SETTS)  \
+		|| { echo "no tranparency percent specified"; usage; };
+fi;
+
+[ -z "${TRNSP_PERCENT}" ] && { echo exiting; exit 1; };
+if [[ $TRNSP_PERCENT == 100 ]]; then
+    TRNSP_HEX="$OPACITY_100"
+elif [[ $TRNSP_PERCENT == 0 ]]; then
+    TRNSP_HEX="$OPACITY_0"
+else
+    TRNSP_HEX=$(printf "0x%x" $((($(printf "%d" $OPACITY_100) * $TRNSP_PERCENT)/100)))
+fi
+
+#"$XPROP" -id 0x116 > "/home/user/test_xroot"
+#xwininfo -root -children > "/home/user/xroot"
+WINID=$("$XPROP" -root 32x '\t$0' _NET_ACTIVE_WINDOW | cut -f2);
+[ -z $WINID ] && { logger "No WINID achivable to set the transparency"; exit 1; }
+logger "Setting transparency of $($XPROP -id $WINID _NET_WM_NAME | cut -d'=' -f2) ($WINID) to $TRNSP_HEX (${TRNSP_PERCENT}%)"
+"$XPROP" -id "$WINID" -f _NET_WM_WINDOW_OPACITY 32c -set _NET_WM_WINDOW_OPACITY "${TRNSP_HEX}"
